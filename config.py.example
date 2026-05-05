@@ -1,0 +1,6 @@
+# Pirate Chat Configuration
+# Copy this to config.py and fill in your values.
+# NEVER commit config.py to git!
+
+ADMIN_PASSWORD = "your-secure-password-here"
+SECRET_KEY = "generate-a-random-secret-key-here"

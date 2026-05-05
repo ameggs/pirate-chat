@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pirate Chat - Files</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div id="app">
+        <nav class="nav-bar">
+            <a href="/chat" class="nav-item">&#x1f4ac; Chat</a>
+            <a href="/files" class="nav-item active">&#x1f4c1; Files</a>
+        </nav>
+
+        <div id="files-container">
+            <div class="files-header">
+                <h2>Shared Files</h2>
+            </div>
+
+            <!-- Upload Section -->
+            <div id="upload-section" class="upload-section">
+                <div class="upload-dropzone" id="dropzone">
+                    <div class="dropzone-icon">&#x1f4c4;</div>
+                    <p class="dropzone-text">Drop a file here or click to browse</p>
+                    <input type="file" id="file-input" class="file-input" hidden>
+                </div>
+                <div class="upload-form">
+                    <button id="upload-file-btn" class="upload-file-btn" disabled>Upload</button>
+                </div>
+                <div id="upload-progress" class="upload-progress" hidden>
+                    <div class="progress-bar">
+                        <div id="progress-fill" class="progress-fill"></div>
+                    </div>
+                    <span id="progress-text" class="progress-text">0%</span>
+                </div>
+            </div>
+
+            <!-- File List -->
+            <div id="file-list" class="file-list">
+                <div id="file-list-empty" class="file-list-empty">
+                    <div class="empty-icon">&#x1f4c2;</div>
+                    <p>No files shared yet. Upload something!</p>
+                </div>
+                <div id="file-items" class="file-items" hidden></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const FILES_API = '/files/api';
+        const UPLOAD_API = '/upload-file';
+
+        let uploadedByName = localStorage.getItem('piratechat_username') || 'Anonymous';
+
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('file-input');
+        const uploadBtn = document.getElementById('upload-file-btn');
+        const progressSection = document.getElementById('upload-progress');
+        const progressFill = document.getElementById('progress-fill');
+        const progressText = document.getElementById('progress-text');
+        const fileItems = document.getElementById('file-items');
+        const emptyState = document.getElementById('file-list-empty');
+
+        dropzone.addEventListener('click', () => fileInput.click());
+
+        ['dragenter', 'dragover'].forEach(evt => {
+            dropzone.addEventListener(evt, (e) => {
+                e.preventDefault();
+                dropzone.classList.add('dragover');
+            });
+        });
+        ['dragleave', 'drop'].forEach(evt => {
+            dropzone.addEventListener(evt, (e) => {
+                e.preventDefault();
+                dropzone.classList.remove('dragover');
+            });
+        });
+        dropzone.addEventListener('drop', (e) => {
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                fileInput.files = files;
+                uploadBtn.disabled = false;
+            }
+        });
+
+        fileInput.addEventListener('change', () => {
+            uploadBtn.disabled = !fileInput.files.length;
+        });
+
+        uploadBtn.addEventListener('click', async () => {
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('username', uploadedByName);
+
+            uploadBtn.disabled = true;
+            progressSection.hidden = false;
+            progressFill.style.width = '0%';
+            progressText.textContent = '0%';
+
+            try {
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', UPLOAD_API, true);
+
+                xhr.upload.onprogress = (e) => {
+                    if (e.lengthComputable) {
+                        const pct = Math.round((e.loaded / e.total) * 100);
+                        progressFill.style.width = pct + '%';
+                        progressText.textContent = pct + '%';
+                    }
+                };
+
+                await new Promise((resolve, reject) => {
+                    xhr.onload = () => {
+                        if (xhr.status >= 200 && xhr.status < 300) {
+                            resolve(JSON.parse(xhr.responseText));
+                        } else {
+                            reject(new Error('Upload failed: ' + xhr.status));
+                        }
+                    };
+                    xhr.onerror = () => reject(new Error('Network error'));
+                    xhr.send(formData);
+                });
+
+                fileInput.value = '';
+                uploadBtn.disabled = true;
+                progressSection.hidden = true;
+
+                await loadFiles();
+            } catch (err) {
+                console.error('Upload error:', err);
+                progressFill.style.width = '0%';
+                progressText.textContent = 'Error';
+                setTimeout(() => { progressSection.hidden = true; }, 2000);
+                uploadBtn.disabled = false;
+            }
+        });
+
+        async function loadFiles() {
+            try {
+                const res = await fetch(FILES_API);
+                const files = await res.json();
+                renderFiles(files);
+            } catch (err) {
+                console.error('Failed to load files:', err);
+            }
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        }
+
+        function formatDate(ts) {
+            const d = new Date(parseFloat(ts) * 1000);
+            const now = new Date();
+            const isToday = d.toDateString() === now.toDateString();
+            const hours = d.getHours().toString().padStart(2, '0');
+            const mins = d.getMinutes().toString().padStart(2, '0');
+            if (isToday) return 'Today at ' + hours + ':' + mins;
+            const yesterday = new Date(now);
+            yesterday.setDate(yesterday.getDate() - 1);
+            if (d.toDateString() === yesterday.toDateString()) return 'Yesterday at ' + hours + ':' + mins;
+            return (d.getMonth() + 1) + '/' + d.getDate() + '/' + d.getFullYear().toString().slice(-2) + ' ' + hours + ':' + mins;
+        }
+
+        function renderFiles(files) {
+            fileItems.innerHTML = '';
+            if (!files || files.length === 0) {
+                emptyState.hidden = false;
+                fileItems.hidden = true;
+                return;
+            }
+            emptyState.hidden = true;
+            fileItems.hidden = false;
+
+            for (const f of files) {
+                const isImage = f.file_type && f.file_type.startsWith('image/');
+                const downloadUrl = '/download/' + f.filename;
+                const div = document.createElement('div');
+                div.className = 'file-item';
+
+                let thumbnailHtml = '';
+                if (isImage) {
+                    thumbnailHtml = '<img src="' + downloadUrl + '" class="file-thumb" alt="' + escapeHtml(f.original_name) + '" loading="lazy">';
+                } else {
+                    thumbnailHtml = '<div class="file-thumb file-thumb-generic">&#x1f4c4;</div>';
+                }
+
+                div.innerHTML =
+                    thumbnailHtml +
+                    '<div class="file-info">' +
+                        '<div class="file-name">' + escapeHtml(f.original_name) + '</div>' +
+                        '<div class="file-meta">' +
+                            '<span class="file-meta-size">' + formatFileSize(f.size) + '</span>' +
+                            '<span class="file-meta-sep">&middot;</span>' +
+                            '<span class="file-meta-user">' + escapeHtml(f.uploaded_by) + '</span>' +
+                            '<span class="file-meta-sep">&middot;</span>' +
+                            '<span class="file-meta-time">' + formatDate(f.uploaded_at) + '</span>' +
+                        '</div>' +
+                    '</div>' +
+                    '<a href="' + downloadUrl + '" class="file-download-btn" download="' + escapeHtml(f.original_name) + '" title="Download">&#x2193;</a>';
+                fileItems.appendChild(div);
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        loadFiles();
+    </script>
+</body>
+</html>

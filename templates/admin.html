@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Pirate Chat</title>
+    <style>
+        :root {
+            --bg-primary: #1a1a2e;
+            --bg-secondary: #16213e;
+            --bg-tertiary: #0f3460;
+            --accent: #00d4aa;
+            --accent-hover: #00b898;
+            --text-primary: #e8e8e8;
+            --text-secondary: #a0a0b0;
+            --danger: #ef4444;
+            --danger-hover: #dc2626;
+            --header-bg: #0d1b2a;
+            --input-bg: #1e2a3a;
+            --shadow: rgba(0, 0, 0, 0.3);
+            --card-bg: #1e2a3a;
+            --border: rgba(255, 255, 255, 0.08);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.4;
+            min-height: 100vh;
+        }
+        a { color: var(--accent); text-decoration: none; }
+        a:hover { color: var(--accent-hover); text-decoration: underline; }
+
+        /* Login Page */
+        .login-overlay {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.7);
+            display: flex; align-items: center; justify-content: center;
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+        }
+        .login-modal {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 32px 28px;
+            width: 88%; max-width: 360px;
+            text-align: center;
+            box-shadow: 0 8px 32px var(--shadow);
+            animation: modalIn 0.3s ease-out;
+        }
+        @keyframes modalIn {
+            from { opacity: 0; transform: scale(0.9) translateY(20px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .login-icon { font-size: 48px; margin-bottom: 12px; }
+        .login-title { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+        .login-subtitle { font-size: 14px; color: var(--text-secondary); margin-bottom: 24px; }
+        .login-input {
+            width: 100%; padding: 14px 16px;
+            border: 2px solid transparent; border-radius: 12px;
+            background: var(--input-bg); color: var(--text-primary);
+            font-size: 16px; outline: none; transition: border-color 0.2s;
+        }
+        .login-input:focus { border-color: var(--accent); }
+        .login-input::placeholder { color: var(--text-secondary); }
+        .login-btn {
+            width: 100%; padding: 14px; margin-top: 16px;
+            border: none; border-radius: 12px;
+            background: var(--accent); color: #0d1b2a;
+            font-size: 16px; font-weight: 600; cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+        }
+        .login-btn:hover { background: var(--accent-hover); }
+        .login-btn:active { transform: scale(0.97); }
+        .login-error { color: var(--danger); font-size: 13px; margin-top: 12px; display: none; }
+
+        /* Dashboard */
+        .dashboard { max-width: 960px; margin: 0 auto; padding: 16px; }
+        .top-bar {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 16px; background: var(--header-bg);
+            border-radius: 12px; margin-bottom: 20px;
+            border: 1px solid var(--border);
+        }
+        .top-bar-title { font-size: 18px; font-weight: 700; }
+        .top-bar-actions { display: flex; gap: 12px; align-items: center; }
+        .top-bar-actions a, .top-bar-actions button {
+            font-size: 13px; padding: 6px 14px; border-radius: 8px;
+            transition: background 0.2s; cursor: pointer;
+        }
+        .back-link { color: var(--text-secondary); }
+        .back-link:hover { color: var(--text-primary); text-decoration: none; }
+        .logout-btn {
+            background: rgba(255,255,255,0.08); color: var(--text-secondary);
+            border: none; font-size: 13px; padding: 6px 14px; border-radius: 8px; cursor: pointer;
+        }
+        .logout-btn:hover { background: rgba(255,255,255,0.15); color: var(--text-primary); }
+
+        /* Stats Cards */
+        .stats-row {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px; margin-bottom: 20px;
+        }
+        .stat-card {
+            background: var(--card-bg); border: 1px solid var(--border);
+            border-radius: 12px; padding: 16px;
+        }
+        .stat-card-value { font-size: 28px; font-weight: 700; color: var(--accent); margin-bottom: 4px; }
+        .stat-card-label { font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+
+        /* Tabs */
+        .tabs {
+            display: flex; gap: 4px; margin-bottom: 16px;
+            background: var(--header-bg); border-radius: 10px; padding: 4px;
+            border: 1px solid var(--border);
+        }
+        .tab-btn {
+            flex: 1; padding: 10px; border: none; border-radius: 8px;
+            background: transparent; color: var(--text-secondary);
+            font-size: 13px; font-weight: 500; cursor: pointer;
+            transition: all 0.2s;
+        }
+        .tab-btn:hover { color: var(--text-primary); }
+        .tab-btn.active { background: var(--bg-tertiary); color: var(--accent); font-weight: 600; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Table */
+        .table-wrap {
+            background: var(--card-bg); border: 1px solid var(--border);
+            border-radius: 12px; overflow: hidden;
+        }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); font-size: 13px; }
+        th { background: var(--header-bg); color: var(--text-secondary); font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: rgba(255,255,255,0.03); }
+        .msg-preview { max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); }
+
+        /* Buttons */
+        .btn {
+            padding: 6px 12px; border: none; border-radius: 8px;
+            font-size: 12px; font-weight: 500; cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-sm { padding: 4px 10px; font-size: 11px; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-danger:hover { background: var(--danger-hover); }
+        .btn-outline {
+            background: transparent; border: 1px solid var(--border); color: var(--text-secondary);
+        }
+        .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+        .btn-accent { background: var(--accent); color: #0d1b2a; font-weight: 600; }
+        .btn-accent:hover { background: var(--accent-hover); }
+        .btn-group { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+
+        /* Status badges */
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 500; }
+        .badge-warn { background: rgba(239,68,68,0.15); color: var(--danger); }
+        .badge-ok { background: rgba(0,212,170,0.15); color: var(--accent); }
+
+        /* Empty state */
+        .empty-state { padding: 40px; text-align: center; color: var(--text-secondary); }
+        .empty-state-icon { font-size: 36px; margin-bottom: 8px; }
+
+        /* User item in users tab */
+        .user-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 14px; border-bottom: 1px solid var(--border);
+        }
+        .user-item:last-child { border-bottom: none; }
+        .user-name { font-weight: 500; }
+        .user-count { color: var(--text-secondary); font-size: 12px; }
+
+        /* Settings */
+        .setting-row {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 14px; border-bottom: 1px solid var(--border);
+        }
+        .setting-row:last-child { border-bottom: none; }
+        .setting-label { font-weight: 500; }
+        .setting-value { color: var(--text-secondary); font-size: 13px; }
+
+        /* Confirm dialog overlay */
+        .confirm-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+            display: none; align-items: center; justify-content: center; z-index: 1000;
+        }
+        .confirm-overlay.show { display: flex; }
+        .confirm-box {
+            background: var(--bg-secondary); border: 1px solid var(--border);
+            border-radius: 16px; padding: 24px; max-width: 360px; width: 88%;
+            text-align: center; box-shadow: 0 8px 32px var(--shadow);
+        }
+        .confirm-text { margin-bottom: 20px; font-size: 15px; line-height: 1.5; }
+        .confirm-actions { display: flex; gap: 12px; justify-content: center; }
+        .confirm-actions button { padding: 10px 24px; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .btn-cancel { background: rgba(255,255,255,0.1); color: var(--text-primary); }
+        .btn-cancel:hover { background: rgba(255,255,255,0.15); }
+
+        /* Alert banner */
+        .alert {
+            padding: 10px 14px; border-radius: 10px; margin-bottom: 12px;
+            font-size: 13px; display: none;
+        }
+        .alert.show { display: block; }
+        .alert-success { background: rgba(0,212,170,0.12); color: var(--accent); border: 1px solid rgba(0,212,170,0.2); }
+        .alert-error { background: rgba(239,68,68,0.12); color: var(--danger); border: 1px solid rgba(239,68,68,0.2); }
+
+        @media (max-width: 600px) {
+            .dashboard { padding: 10px; }
+            .stats-row { grid-template-columns: repeat(2, 1fr); }
+            .stat-card-value { font-size: 22px; }
+            th, td { padding: 8px 10px; font-size: 12px; }
+            .msg-preview { max-width: 120px; }
+        }
+    </style>
+</head>
+<body>
+<div id="login-section" class="login-overlay" style="display:none;">
+    <div class="login-modal">
+        <div class="login-icon">🔐</div>
+        <h1 class="login-title">Admin Panel</h1>
+        <p class="login-subtitle">Enter the admin password to manage Pirate Chat.</p>
+        <form id="login-form">
+            <input type="password" id="password-input" class="login-input" placeholder="Admin password..." autocomplete="off" required>
+            <button type="submit" class="login-btn">Login</button>
+        </form>
+        <div class="login-error" id="login-error">Invalid password</div>
+        <p style="margin-top:16px;"><a href="/" style="font-size:13px;">&larr; Back to Chat</a></p>
+    </div>
+</div>
+
+<div id="dashboard-section" class="dashboard" style="display:none;">
+    <!-- Top Bar -->
+    <div class="top-bar">
+        <span class="top-bar-title">&#9881;&#65039; Admin Panel</span>
+        <div class="top-bar-actions">
+            <a href="/" class="back-link">&larr; Back to Chat</a>
+            <a href="/admin/logout" class="logout-btn" id="logout-link">Logout</a>
+        </div>
+    </div>
+
+    <!-- Alert -->
+    <div id="alert" class="alert"></div>
+
+    <!-- Stats Row -->
+    <div class="stats-row" id="stats-row">
+        <div class="stat-card">
+            <div class="stat-card-value" id="stat-messages">0</div>
+            <div class="stat-card-label">Total Messages</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-card-value" id="stat-files">0</div>
+            <div class="stat-card-label">Total Files</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-card-value" id="stat-users">0</div>
+            <div class="stat-card-label">Active Users (5m)</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-card-value" id="stat-storage">0 B</div>
+            <div class="stat-card-label">Storage Used</div>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+        <button class="tab-btn active" data-tab="messages">Messages</button>
+        <button class="tab-btn" data-tab="files">Files</button>
+        <button class="tab-btn" data-tab="users">Users</button>
+        <button class="tab-btn" data-tab="settings">Settings</button>
+    </div>
+
+    <!-- Messages Tab -->
+    <div class="tab-content active" id="tab-messages">
+        <div class="btn-group">
+            <button class="btn btn-danger" id="clear-chat-btn">Clear All Chat</button>
+            <button class="btn btn-outline" id="refresh-messages-btn">Refresh</button>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr><th>ID</th><th>Username</th><th>Message</th><th>Has Image</th><th>Timestamp</th><th>Action</th></tr>
+                </thead>
+                <tbody id="messages-tbody"></tbody>
+            </table>
+            <div class="empty-state" id="messages-empty" style="display:none;">
+                <div class="empty-state-icon">💬</div>
+                <p>No messages yet.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Files Tab -->
+    <div class="tab-content" id="tab-files">
+        <div class="btn-group">
+            <button class="btn btn-outline" id="refresh-files-btn">Refresh</button>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr><th>ID</th><th>Filename</th><th>Size</th><th>Uploaded By</th><th>Date</th><th>Action</th></tr>
+                </thead>
+                <tbody id="files-tbody"></tbody>
+            </table>
+            <div class="empty-state" id="files-empty" style="display:none;">
+                <div class="empty-state-icon">📁</div>
+                <p>No files shared yet.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Users Tab -->
+    <div class="tab-content" id="tab-users">
+        <div class="table-wrap">
+            <div id="users-list"></div>
+            <div class="empty-state" id="users-empty" style="display:none;">
+                <div class="empty-state-icon">👤</div>
+                <p>No users yet.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Tab -->
+    <div class="tab-content" id="tab-settings">
+        <div class="table-wrap">
+            <div class="setting-row">
+                <span class="setting-label">Max Upload Size (File Board)</span>
+                <span class="setting-value">1 GB</span>
+            </div>
+            <div class="setting-row">
+                <span class="setting-label">Max Upload Size (Chat Images)</span>
+                <span class="setting-value">16 MB</span>
+            </div>
+            <div class="setting-row">
+                <span class="setting-label">Allowed Image Formats</span>
+                <span class="setting-value">PNG, JPG, GIF, WebP</span>
+            </div>
+            <div class="setting-row">
+                <span class="setting-label">Admin Password</span>
+                <span class="setting-value">******** <span style="color:var(--text-secondary);font-size:11px;">(change via app.py)</span></span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Confirm Dialog -->
+<div class="confirm-overlay" id="confirm-overlay">
+    <div class="confirm-box">
+        <div class="confirm-text" id="confirm-text">Are you sure?</div>
+        <div class="confirm-actions">
+            <button class="btn-cancel" id="confirm-cancel">Cancel</button>
+            <button class="btn btn-danger" id="confirm-ok">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// ── State ──
+let isAdmin = false;
+let pendingAction = null;
+
+// ── Helpers ──
+function formatDate(ts) {
+    const d = new Date(ts * 1000);
+    return d.toLocaleString();
+}
+
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+function showAlert(msg, type) {
+    const el = document.getElementById('alert');
+    el.textContent = msg;
+    el.className = 'alert show alert-' + type;
+    setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+function confirmDialog(text, cb) {
+    document.getElementById('confirm-text').textContent = text;
+    document.getElementById('confirm-overlay').classList.add('show');
+    pendingAction = cb;
+}
+
+document.getElementById('confirm-cancel').addEventListener('click', () => {
+    document.getElementById('confirm-overlay').classList.remove('show');
+    pendingAction = null;
+});
+
+document.getElementById('confirm-ok').addEventListener('click', () => {
+    document.getElementById('confirm-overlay').classList.remove('show');
+    if (pendingAction) { pendingAction(); pendingAction = null; }
+});
+
+// ── Login ──
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const password = document.getElementById('password-input').value;
+    try {
+        const res = await fetch('/admin/login', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({password})
+        });
+        if (res.ok) {
+            isAdmin = true;
+            showDashboard();
+        } else {
+            document.getElementById('login-error').style.display = 'block';
+        }
+    } catch (err) {
+        document.getElementById('login-error').textContent = 'Network error';
+        document.getElementById('login-error').style.display = 'block';
+    }
+});
+
+// ── Dashboard ──
+async function showDashboard() {
+    document.getElementById('login-section').style.display = 'none';
+    document.getElementById('dashboard-section').style.display = 'block';
+    await loadStats();
+    await loadMessages();
+    await loadFiles();
+    await loadUsers();
+}
+
+async function loadStats() {
+    try {
+        const res = await fetch('/admin/api/stats');
+        if (!res.ok) return;
+        const data = await res.json();
+        document.getElementById('stat-messages').textContent = data.messages_total;
+        document.getElementById('stat-files').textContent = data.files_total;
+        document.getElementById('stat-users').textContent = data.active_users;
+        document.getElementById('stat-storage').textContent = formatFileSize(data.storage_bytes);
+    } catch(e) {}
+}
+
+async function loadMessages() {
+    try {
+        const res = await fetch('/admin/api/messages');
+        if (!res.ok) return;
+        const messages = await res.json();
+        const tbody = document.getElementById('messages-tbody');
+        const empty = document.getElementById('messages-empty');
+        tbody.innerHTML = '';
+        if (messages.length === 0) {
+            empty.style.display = 'block';
+            return;
+        }
+        empty.style.display = 'none';
+        messages.forEach(msg => {
+            const tr = document.createElement('tr');
+            const ts = new Date(msg.timestamp * 1000).toLocaleString();
+            const hasImg = msg.image_path ? 'Yes' : 'No';
+            tr.innerHTML = `
+                <td>${msg.id}</td>
+                <td>${escapeHtml(msg.username)}</td>
+                <td class="msg-preview">${escapeHtml(msg.message || '(no text)')}</td>
+                <td>${hasImg}</td>
+                <td style="font-size:11px;color:var(--text-secondary);">${ts}</td>
+                <td><button class="btn btn-danger btn-sm" data-action="delete-msg" data-id="${msg.id}">Delete</button></td>
+            `;
+            tbody.appendChild(tr);
+        });
+        // Attach delete handlers
+        tbody.querySelectorAll('[data-action="delete-msg"]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = btn.dataset.id;
+                confirmDialog('Delete message #' + id + '?', () => deleteMessage(id));
+            });
+        });
+    } catch(e) {}
+}
+
+async function loadFiles() {
+    try {
+        const res = await fetch('/admin/api/files');
+        if (!res.ok) return;
+        const files = await res.json();
+        const tbody = document.getElementById('files-tbody');
+        const empty = document.getElementById('files-empty');
+        tbody.innerHTML = '';
+        if (files.length === 0) {
+            empty.style.display = 'block';
+            return;
+        }
+        empty.style.display = 'none';
+        files.forEach(f => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${f.id}</td>
+                <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(f.original_name)}</td>
+                <td>${formatFileSize(f.size)}</td>
+                <td>${escapeHtml(f.uploaded_by)}</td>
+                <td style="font-size:11px;color:var(--text-secondary);">${new Date(parseFloat(f.uploaded_at)*1000).toLocaleString()}</td>
+                <td><button class="btn btn-danger btn-sm" data-action="delete-file" data-id="${f.id}">Delete</button></td>
+            `;
+            tbody.appendChild(tr);
+        });
+        tbody.querySelectorAll('[data-action="delete-file"]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = btn.dataset.id;
+                confirmDialog('Delete file #' + id + '?', () => deleteFile(id));
+            });
+        });
+    } catch(e) {}
+}
+
+async function loadUsers() {
+    try {
+        const res = await fetch('/admin/api/users');
+        if (!res.ok) return;
+        const users = await res.json();
+        const list = document.getElementById('users-list');
+        const empty = document.getElementById('users-empty');
+        list.innerHTML = '';
+        if (users.length === 0) {
+            empty.style.display = 'block';
+            return;
+        }
+        empty.style.display = 'none';
+        users.forEach(u => {
+            const div = document.createElement('div');
+            div.className = 'user-item';
+            div.innerHTML = `
+                <div>
+                    <span class="user-name">${escapeHtml(u.username)}</span>
+                    <span class="user-count"> &middot; ${u.count} messages</span>
+                </div>
+                <button class="btn btn-danger btn-sm" data-action="kick-user" data-username="${escapeHtml(u.username)}">Kick</button>
+            `;
+            list.appendChild(div);
+        });
+        list.querySelectorAll('[data-action="kick-user"]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const username = btn.dataset.username;
+                confirmDialog('Kick "' + username + '"? This deletes all their messages.', () => kickUser(username));
+            });
+        });
+    } catch(e) {}
+}
+
+// ── Actions ──
+async function deleteMessage(id) {
+    try {
+        const res = await fetch('/admin/api/delete-message/' + id, {method: 'POST'});
+        if (res.ok) {
+            showAlert('Message deleted', 'success');
+            await loadMessages();
+            await loadStats();
+        } else {
+            showAlert('Failed to delete', 'error');
+        }
+    } catch(e) { showAlert('Network error', 'error'); }
+}
+
+async function deleteFile(id) {
+    try {
+        const res = await fetch('/admin/api/delete-file/' + id, {method: 'POST'});
+        if (res.ok) {
+            showAlert('File deleted', 'success');
+            await loadFiles();
+            await loadStats();
+        } else {
+            showAlert('Failed to delete', 'error');
+        }
+    } catch(e) { showAlert('Network error', 'error'); }
+}
+
+async function kickUser(username) {
+    try {
+        const res = await fetch('/admin/api/kick-user', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({username})
+        });
+        if (res.ok) {
+            const data = await res.json();
+            showAlert('Kicked "' + username + '", ' + data.messages_deleted + ' messages deleted', 'success');
+            await loadMessages();
+            await loadUsers();
+            await loadStats();
+        } else {
+            showAlert('Failed to kick user', 'error');
+        }
+    } catch(e) { showAlert('Network error', 'error'); }
+}
+
+document.getElementById('clear-chat-btn').addEventListener('click', () => {
+    confirmDialog('Clear ALL chat messages and uploaded images? This cannot be undone.', async () => {
+        try {
+            const res = await fetch('/admin/api/clear-chat', {method: 'POST'});
+            if (res.ok) {
+                showAlert('Chat cleared', 'success');
+                await loadMessages();
+                await loadStats();
+            } else {
+                showAlert('Failed to clear', 'error');
+            }
+        } catch(e) { showAlert('Network error', 'error'); }
+    });
+});
+
+// ── Tab Switching ──
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    });
+});
+
+// ── Refresh ──
+document.getElementById('refresh-messages-btn').addEventListener('click', loadMessages);
+document.getElementById('refresh-files-btn').addEventListener('click', loadFiles);
+
+// ── Auto-refresh stats every 10s ──
+setInterval(loadStats, 10000);
+
+// ── Escape HTML ──
+function escapeHtml(str) {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+// ── Init ──
+async function init() {
+    // Check if already authenticated by trying to load stats
+    try {
+        const res = await fetch('/admin/api/stats');
+        if (res.ok) {
+            isAdmin = true;
+            showDashboard();
+        } else {
+            document.getElementById('login-section').style.display = 'flex';
+        }
+    } catch(e) {
+        document.getElementById('login-section').style.display = 'flex';
+    }
+}
+
+init();
+</script>
+</body>
+</html>
