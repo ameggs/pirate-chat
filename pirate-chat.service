@@ -1,0 +1,14 @@
+[Unit]
+Description=Pirate Chat App with Image Upload
+After=network.target
+
+[Service]
+Type=simple
+User=andy
+WorkingDirectory=/home/andy/pirate-chat
+ExecStart=/usr/bin/python3 /home/andy/pirate-chat/app.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
