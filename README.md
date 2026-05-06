@@ -31,6 +31,7 @@ The setup script will:
 - Create config files
 - Install dependencies
 - Optionally install as a systemd service (auto-start on boot)
+- **Optionally configure as a standalone WiFi hotspot** with captive portal
 
 ### 2. Run It
 
@@ -46,7 +47,40 @@ sudo systemctl start pirate-chat
 
 ### 3. Open It
 
-Open `http://<your-pi-ip>:5000` in any browser on the same network.
+**Normal mode:** Open `http://<your-pi-ip>:5000` in any browser on the same network.
+
+**Hotspot mode (if configured):** Connect to the "piratechat" WiFi network — the app opens automatically!
+
+## Offline WiFi Hotspot Mode
+
+Pirate Chat can run as a **standalone WiFi hotspot** — no router, no internet, no network needed. 
+
+### Option A: During setup
+
+Run `python3 setup.py` and answer "yes" when asked about WiFi hotspot setup. The installer will:
+1. Create a WiFi network (SSID: "piratechat", no password)
+2. Set up a **captive portal** — any device that connects automatically opens the app
+3. Redirect all web traffic to the Pirate Chat app (any website they visit → Pirate Chat)
+
+### Option B: Manual setup
+
+```bash
+sudo bash pirate-chat-hotspot.sh
+```
+
+Custom SSID:
+```bash
+sudo bash pirate-chat-hotspot.sh MyCustomSSID
+```
+
+### How it works
+
+When someone connects to the hotspot:
+1. Their phone/laptop auto-detects the captive portal and opens the Pirate Chat page
+2. Or they open any browser → every domain resolves to the Pi → app loads
+3. No password needed to join the network — just connect and chat
+
+**Requirements:** Raspberry Pi (Zero 2W, 3, 4, or 5) with WiFi, running Raspberry Pi OS.
 
 ## File Structure
 
@@ -71,16 +105,6 @@ pirate-chat/
 ├── chat.db                 # SQLite database (gitignored)
 └── .gitignore
 ```
-
-## Offline WiFi Hotspot Mode
-
-For fully offline use, set up `hostapd` and `dnsmasq` on your Raspberry Pi:
-
-```bash
-sudo apt install hostapd dnsmasq
-```
-
-Configure your Pi to broadcast a WiFi network called "PirateChat" with a captive portal that automatically opens the app when users connect.
 
 ## Admin Panel
 
