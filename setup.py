@@ -134,16 +134,16 @@ def setup_hotspot():
     ).stdout
     if "wlan" not in wifi_iface:
         print("  ⚠️  No wireless interface found — hotspot requires WiFi")
-        print("  💡  You can set it up later with: sudo pirate-chat-hotspot.sh")
+        print("  💡  You can set it up later with: sudo bash install-piratechat.sh")
         return
 
     ssid = ask("WiFi network name (SSID)", default="piratechat")
     print(f"  📡  Setting up hotspot '{ssid}'...")
 
-    hotspot_script = os.path.join(BASE_DIR, "pirate-chat-hotspot.sh")
+    hotspot_script = os.path.join(BASE_DIR, "install-piratechat.sh")
     if os.path.exists(hotspot_script):
         result = subprocess.run(
-            ["sudo", "bash", hotspot_script, ssid],
+            ["sudo", "bash", hotspot_script, "--ssid", ssid],
             capture_output=True, text=True,
         )
         print(result.stdout)
@@ -153,7 +153,8 @@ def setup_hotspot():
         print("  ✅  WiFi hotspot configured and active!")
         print(f"  🔗  Connect to '{ssid}' and open http://10.42.0.1:5000")
     else:
-        print("  ⚠️  pirate-chat-hotspot.sh not found — skipping")
+        print("  ⚠️  install-piratechat.sh not found — run it separately")
+        print("  💡  Available from: https://github.com/ameggs/pirate-chat")
 
 
 # ---------------------------------------------------------------------------

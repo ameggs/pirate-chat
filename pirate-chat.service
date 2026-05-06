@@ -4,9 +4,9 @@ After=network.target
 
 [Service]
 Type=simple
-User=andy
-WorkingDirectory=/home/andy/pirate-chat
-ExecStart=/usr/bin/python3 /home/andy/pirate-chat/app.py
+User=pi
+WorkingDirectory=/home/pi/pirate-chat
+ExecStart=/usr/bin/python3 /home/pi/pirate-chat/app.py
 Restart=on-failure
 RestartSec=5
 

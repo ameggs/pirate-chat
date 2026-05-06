@@ -1,13 +1,8 @@
-# Secrets
 config.py
-
-# Data
-chat.db
+*.db
 uploads/
 shared_files/
 __pycache__/
 *.pyc
-
-# OS junk
 .DS_Store
 Thumbs.db
