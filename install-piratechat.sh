@@ -21,7 +21,10 @@
 set -euo pipefail
 
 # Config
-APP_DIR="/home/pi/pirate-chat"
+# Detect the real user (even when running via sudo)
+REAL_USER=${SUDO_USER:-$(whoami)}
+REAL_HOME=$(eval echo "~$REAL_USER")
+APP_DIR="$REAL_HOME/pirate-chat"
 REPO_URL="https://github.com/ameggs/pirate-chat.git"
 APP_PORT="5000"
 HOTSPOT_IP="10.42.0.1"
@@ -109,7 +112,7 @@ echo "  OK - Python packages installed"
 # Step 4: Create data directories and config
 echo "  Step 4: Creating data directories and config"
 mkdir -p "$APP_DIR/uploads" "$APP_DIR/shared_files"
-chown -R pi:pi "$APP_DIR/uploads" "$APP_DIR/shared_files"
+chown -R "$REAL_USER:$REAL_USER" "$APP_DIR/uploads" "$APP_DIR/shared_files"
 
 cat > "$APP_DIR/config.py" << CONFIGEOF
 # Pirate Chat Configuration
@@ -119,7 +122,7 @@ ADMIN_PASSWORD="$ADMIN_PASSWORD"
 SECRET_KEY="$SECRET_KEY"
 CONFIGEOF
 
-chown pi:pi "$APP_DIR/config.py"
+chown "$REAL_USER:$REAL_USER" "$APP_DIR/config.py"
 chmod 600 "$APP_DIR/config.py"
 echo "  OK - Config written"
 
@@ -132,7 +135,7 @@ After=network.target
 
 [Service]
 Type=simple
-User=pi
+User=$REAL_USER
 WorkingDirectory=$APP_DIR
 ExecStart=/usr/bin/python3 $APP_DIR/app.py
 Restart=on-failure

@@ -510,6 +510,43 @@ def admin_logout():
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Catch-all captive portal handler
+# ---------------------------------------------------------------------------
+@app.route("/generate_204")
+@app.route("/connecttest.txt")
+def captive_portal_android():
+    return redirect(url_for("index"))
+
+@app.errorhandler(404)
+def catch_all(e):
+    return redirect(url_for("index"))
+
 if __name__ == "__main__":
     init_db()
     app.run(host="0.0.0.0", port=5000, debug=True)
+
+# ---------------------------------------------------------------------------
+# Catch-all captive portal handler
+# ---------------------------------------------------------------------------
+@app.route("/generate_204")
+@app.route("/connecttest.txt")
+def captive_portal_android():
+    return redirect(url_for("index"))
+
+@app.errorhandler(404)
+def catch_all(e):
+    return redirect(url_for("index"))
+
+# ---------------------------------------------------------------------------
+# Catch-all captive portal handler
+# ---------------------------------------------------------------------------
+@app.route("/generate_204")
+@app.route("/connecttest.txt")
+def captive_portal_android():
+    return redirect(url_for("index"))
+
+@app.errorhandler(404)
+def catch_all(e):
+    return redirect(url_for("index"))
