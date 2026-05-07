@@ -22,8 +22,12 @@ A portable chat and file-sharing app that runs on any Linux machine — perfect 
 Run this on a **fresh Raspberry Pi OS** (Bookworm+) with WiFi:
 
 ```bash
-sudo bash install-piratechat.sh --password YourAdminPass --ssid MyNetwork
+sudo bash install-piratechat.sh
 ```
+
+The script will prompt you for:
+- **Admin password** — secures the dashboard (with confirmation)
+- **WiFi SSID** — the hotspot name (default: `piratechat`)
 
 That's it. One command does everything:
 
@@ -34,12 +38,12 @@ That's it. One command does everything:
 5. Installs and starts the systemd service
 6. Sets up a WiFi hotspot with captive portal
 
-When it finishes, the Pi is broadcasting `MyNetwork` — connect any device and Pirate Chat opens automatically.
+When it finishes, the Pi is broadcasting your chosen SSID — connect any device and Pirate Chat opens automatically.
 
-**Without arguments** (auto-generates password and uses SSID "piratechat"):
+**For automation** (non-interactive), pass arguments:
 
 ```bash
-sudo bash install-piratechat.sh
+sudo bash install-piratechat.sh --password YourAdminPass --ssid MyNetwork
 ```
 
 ### Option B: Interactive setup (any Linux machine)
@@ -85,8 +89,8 @@ This is the intended use case — a Pi Zero 2W running as a standalone chat hub.
 # SSH into the Pi (default: pi/raspberry)
 ssh pi@<pi-ip>
 
-# Download and run the installer
-sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/ameggs/pirate-chat/main/install-piratechat.sh)" -- --password MySecretPass --ssid piratechat
+# Download and run the installer (will prompt for password + SSID)
+sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/ameggs/pirate-chat/main/install-piratechat.sh)"
 ```
 
 **Your Pi is now an offline chat hub.** SSH will drop once the hotspot activates.
