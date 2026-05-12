@@ -255,7 +255,6 @@ def download_file(filename):
 @app.route("/api/stats")
 def api_stats():
     conn = get_db()
-    # Active users: distinct usernames with messages in last 5 minutes
     cutoff = time.time() - 300
     user_row = conn.execute(
         "SELECT COUNT(DISTINCT username) AS cnt FROM messages WHERE timestamp >= ?",
@@ -423,7 +422,6 @@ def admin_clear_chat():
     conn.execute("DELETE FROM messages")
     conn.commit()
     conn.close()
-    # Delete all files in uploads/
     upload_dir = app.config["UPLOAD_FOLDER"]
     for f in os.listdir(upload_dir):
         fp = os.path.join(upload_dir, f)
@@ -482,7 +480,6 @@ def admin_kick_user():
         return jsonify({"error": "Username required"}), 400
     username = data["username"].strip()
     conn = get_db()
-    # Get messages with images to also delete those files
     rows = conn.execute(
         "SELECT image_path FROM messages WHERE username = ? AND image_path IS NOT NULL",
         (username,),
@@ -516,7 +513,7 @@ def admin_logout():
 # ---------------------------------------------------------------------------
 @app.route("/generate_204")
 @app.route("/connecttest.txt")
-def captive_portal_android():
+def captive_portal_redirect():
     return redirect(url_for("index"))
 
 @app.errorhandler(404)
@@ -526,27 +523,3 @@ def catch_all(e):
 if __name__ == "__main__":
     init_db()
     app.run(host="0.0.0.0", port=5000, debug=True)
-
-# ---------------------------------------------------------------------------
-# Catch-all captive portal handler
-# ---------------------------------------------------------------------------
-@app.route("/generate_204")
-@app.route("/connecttest.txt")
-def captive_portal_android():
-    return redirect(url_for("index"))
-
-@app.errorhandler(404)
-def catch_all(e):
-    return redirect(url_for("index"))
-
-# ---------------------------------------------------------------------------
-# Catch-all captive portal handler
-# ---------------------------------------------------------------------------
-@app.route("/generate_204")
-@app.route("/connecttest.txt")
-def captive_portal_android():
-    return redirect(url_for("index"))
-
-@app.errorhandler(404)
-def catch_all(e):
-    return redirect(url_for("index"))
