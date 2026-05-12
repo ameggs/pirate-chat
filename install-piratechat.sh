@@ -21,7 +21,6 @@
 set -euo pipefail
 
 # Config
-# Detect the real user (even when running via sudo)
 REAL_USER=${SUDO_USER:-$(whoami)}
 REAL_HOME=$(eval echo "~$REAL_USER")
 APP_DIR="$REAL_HOME/pirate-chat"
@@ -48,7 +47,7 @@ echo "  |     Pirate Chat -- All-in-One Installer       |"
 echo "  +----------------------------------------------+"
 echo ""
 
-# Interactive prompts (only if CLI args not given)
+# Interactive prompts
 if [[ -z "$CLI_SSID" ]]; then
     read -r -p "  WiFi network name (SSID) [piratechat]: " input_ssid
     SSID="${input_ssid:-piratechat}"
@@ -78,7 +77,6 @@ else
     ADMIN_PASSWORD="$CLI_PASSWORD"
 fi
 
-# Generate a random secret key
 SECRET_KEY="$(tr -dc 'a-f0-9' < /dev/urandom | head -c 64 2>/dev/null || echo dummy)"
 
 echo ""
@@ -167,10 +165,8 @@ if [[ -z "$WIFI_IFACE" ]]; then
 else
     echo "  Using interface: $WIFI_IFACE"
 
-    # Delete any existing profile with this name
     nmcli connection delete "$SSID" 2>/dev/null || true
 
-    # Create hotspot connection
     nmcli connection add \
         type wifi \
         ifname "$WIFI_IFACE" \
@@ -182,24 +178,19 @@ else
 
     nmcli connection modify "$SSID" connection.autoconnect-priority 100
 
-    # DNS catch-all for captive portal
     mkdir -p /etc/NetworkManager/dnsmasq-shared.d/
     cat > /etc/NetworkManager/dnsmasq-shared.d/pirate-chat-portal.conf << DNSEOF
 address=/#/$HOTSPOT_IP
 DNSEOF
     echo "  OK - DNS catch-all configured"
 
-    # Port redirect script
     cat > /usr/local/bin/pirate-chat-redirect.sh << 'REDIRECTEOF'
 #!/bin/bash
 iptables -t nat -C PREROUTING -i wlan0 -p tcp --dport 80 -j REDIRECT --to-port 5000 2>/dev/null || \
     iptables -t nat -A PREROUTING -i wlan0 -p tcp --dport 80 -j REDIRECT --to-port 5000
-iptables -t nat -C PREROUTING -i wlan0 -p tcp --dport 443 -j REDIRECT --to-port 5000 2>/dev/null || \
-    iptables -t nat -A PREROUTING -i wlan0 -p tcp --dport 443 -j REDIRECT --to-port 5000
 REDIRECTEOF
     chmod +x /usr/local/bin/pirate-chat-redirect.sh
 
-    # NetworkManager dispatcher
     cat > /etc/NetworkManager/dispatcher.d/99-pirate-chat << 'DISPATCHEOF'
 #!/bin/bash
 if [ "$1" = "wlan0" ] && [ "$2" = "up" ]; then
@@ -208,10 +199,8 @@ fi
 DISPATCHEOF
     chmod +x /etc/NetworkManager/dispatcher.d/99-pirate-chat
 
-    # Apply rules now
     /usr/local/bin/pirate-chat-redirect.sh
 
-    # Bring up the hotspot
     nmcli connection up "$SSID" 2>&1 || true
     echo "  OK - Hotspot configured -- captive portal active"
 fi

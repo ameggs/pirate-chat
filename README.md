@@ -46,6 +46,10 @@ When it finishes, the Pi is broadcasting your chosen SSID — connect any device
 sudo bash install-piratechat.sh --password YourAdminPass --ssid MyNetwork
 ```
 
+> **🔌 Default IP:** `10.42.0.1:5000` — connect any device to the hotspot and open this address in a browser.
+>
+> **⚠️ SSH note:** Once the hotspot activates, your Pi's WiFi switches to AP mode. On a Pi Zero 2W (single WiFi chip), you will **lose SSH access over WiFi**. To get SSH back, connect a device to the hotspot and SSH to `10.42.0.1`, or use a USB Ethernet adapter. Pi 3/4/5 models with Ethernet stay accessible via the wired connection.
+
 ### Option B: Interactive setup (any Linux machine)
 
 ```bash
@@ -108,7 +112,7 @@ For other Pi models (3/4/5) with Ethernet, the hotspot runs on WiFi while Ethern
 When someone connects to the hotspot:
 
 1. **DNS catch-all** — every domain they visit resolves to the Pi (`10.42.0.1`)
-2. **Port redirect** — HTTP (80) and HTTPS (443) are forwarded to the Flask app (5000)
+2. **Port redirect** — HTTP (80) is forwarded to the Flask app (5000)
 3. **Captive portal** — phones/laptops auto-detect the portal and pop up a "Sign in to network" notification
 4. **Landing page** — the Pirate Chat home screen with links to chat and file sharing
 
@@ -122,7 +126,7 @@ The hotspot uses NetworkManager's built-in AP mode (not hostapd directly) and it
 | Subnet | 10.42.0.0/24 |
 | DHCP | NetworkManager shared (built-in) |
 | DNS | Catch-all, all domains → 10.42.0.1 |
-| HTTP redirect | Port 80/443 → 5000 |
+| HTTP redirect | Port 80 → 5000 |
 | WiFi | 2.4 GHz, channel bg, no password |
 
 ## File Structure
