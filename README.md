@@ -29,6 +29,10 @@ The script will prompt you for:
 - **Admin password** — secures the dashboard (with confirmation)
 - **WiFi SSID** — the hotspot name (default: `piratechat`)
 
+> **🔑 Admin default:** if you run `app.py` straight from a clone without setup, the
+> dashboard password defaults to **`admin`** (`/admin`). `setup.py` or `config.py`
+> overrides it — set your own before exposing the app anywhere.
+
 That's it. One command does everything:
 
 1. Installs system packages (Python, pip, NetworkManager, iptables)
