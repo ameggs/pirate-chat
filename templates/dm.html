@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Lobby Chat — Direct</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        #dm-wrap { display: flex; flex-direction: column; height: 100vh; }
+        #dm-main { flex: 1; display: flex; min-height: 0; }
+        #peer-pane {
+            width: 34%; min-width: 130px; max-width: 260px;
+            border-right: 1px solid rgba(255,255,255,.12);
+            overflow-y: auto; -webkit-overflow-scrolling: touch;
+        }
+        #thread-pane { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+        .peer {
+            padding: 12px 10px; cursor: pointer; font-size: 15px;
+            border-bottom: 1px solid rgba(255,255,255,.07);
+            display: flex; justify-content: space-between; align-items: center; gap: 6px;
+            color: inherit; background: none; width: 100%; text-align: left; font-family: inherit;
+        }
+        .peer.active { background: rgba(255,255,255,.10); }
+        .peer-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .badge {
+            background: #e5484d; color: #fff; border-radius: 10px;
+            font-size: 11px; padding: 1px 6px; min-width: 18px; text-align: center;
+        }
+        #thread-head {
+            padding: 10px 14px; font-size: 15px; font-weight: 600;
+            border-bottom: 1px solid rgba(255,255,255,.12);
+        }
+        #thread { flex: 1; overflow-y: auto; padding: 12px; -webkit-overflow-scrolling: touch; }
+        .bubble {
+            max-width: 78%; margin: 6px 0; padding: 8px 11px; border-radius: 14px;
+            font-size: 15px; line-height: 1.35; word-wrap: break-word; white-space: pre-wrap;
+        }
+        .bubble.mine { margin-left: auto; background: #2f6f8f; color: #fff; border-bottom-right-radius: 4px; }
+        .bubble.theirs { margin-right: auto; background: rgba(255,255,255,.10); border-bottom-left-radius: 4px; }
+        .bubble-time { display: block; font-size: 10px; opacity: .55; margin-top: 3px; }
+        #dm-input-bar { display: flex; gap: 8px; padding: 10px; border-top: 1px solid rgba(255,255,255,.12); }
+        #dm-input { flex: 1; padding: 11px 13px; border-radius: 20px; border: 1px solid rgba(255,255,255,.18);
+                    background: rgba(255,255,255,.06); color: inherit; font-size: 16px; font-family: inherit; }
+        #dm-send { padding: 0 16px; border-radius: 20px; border: 0; background: #2f6f8f; color: #fff;
+                   font-size: 15px; font-weight: 600; cursor: pointer; }
+        #dm-empty { padding: 24px; opacity: .6; font-size: 14px; text-align: center; }
+        .nav-badge { margin-left: 4px; }
+    </style>
+</head>
+<body>
+<div id="dm-wrap">
+    <nav class="nav-bar">
+        <a href="/chat" class="nav-item">💬 Chat</a>
+        <a href="/dm" class="nav-item active">✉️ Direct <span id="nav-unread" class="badge nav-badge" style="display:none"></span></a>
+        <a href="/files" class="nav-item">📁 Files</a>
+    </nav>
+
+    <div id="login-modal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-icon">✉️</div>
+            <h1 class="modal-title">Direct Messages</h1>
+            <p class="modal-subtitle">Pick a username — the same one you use in the main chat.</p>
+            <form id="login-form">
+                <input type="text" id="username-input" class="modal-input" placeholder="Enter your username..." maxlength="24" autocomplete="off" required>
+                <button type="submit" class="modal-btn">Continue</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="dm-main">
+        <div id="peer-pane"><div id="dm-empty">Looking for people…</div></div>
+        <div id="thread-pane">
+            <div id="thread-head">Pick someone to message</div>
+            <div id="thread"></div>
+            <div id="dm-input-bar" style="display:none">
+                <input type="text" id="dm-input" placeholder="Message…" autocomplete="off" maxlength="2000">
+                <button id="dm-send">Send</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const meKey = 'popupchat_username';
+let me = localStorage.getItem(meKey) || '';
+let peer = '';
+let lastCount = 0;
+
+const $ = (id) => document.getElementById(id);
+
+function showLogin() { $('login-modal').style.display = 'flex'; }
+function hideLogin() { $('login-modal').style.display = 'none'; }
+
+$('login-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const v = $('username-input').value.trim().slice(0, 24);
+    if (!v) return;
+    me = v;
+    localStorage.setItem(meKey, me);
+    hideLogin();
+    loadPeers();
+});
+
+async function loadPeers() {
+    if (!me) return;
+    try {
+        const res = await fetch('/api/dm/users?me=' + encodeURIComponent(me));
+        const users = await res.json();
+        const pane = $('peer-pane');
+        pane.textContent = '';
+        if (!users.length) {
+            const d = document.createElement('div');
+            d.id = 'dm-empty';
+            d.textContent = 'Nobody else here yet. Say hi in the main chat first.';
+            pane.appendChild(d);
+            return;
+        }
+        users.forEach(u => {
+            const b = document.createElement('button');
+            b.className = 'peer' + (u.username === peer ? ' active' : '');
+            b.dataset.peer = u.username;
+            const n = document.createElement('span');
+            n.className = 'peer-name';
+            n.textContent = u.username;
+            b.appendChild(n);
+            if (u.unread > 0) {
+                const badge = document.createElement('span');
+                badge.className = 'badge';
+                badge.textContent = u.unread;
+                b.appendChild(badge);
+            }
+            b.addEventListener('click', () => openPeer(u.username));
+            pane.appendChild(b);
+        });
+    } catch (err) { console.error('peers', err); }
+}
+
+async function openPeer(name) {
+    peer = name;
+    lastCount = -1;
+    $('thread-head').textContent = name;
+    $('dm-input-bar').style.display = 'flex';
+    $('dm-input').placeholder = 'Message ' + name + '…';
+    $('thread').textContent = '';
+    document.querySelectorAll('.peer').forEach(el =>
+        el.classList.toggle('active', el.dataset.peer === name));
+    await loadThread();
+    $('dm-input').focus();
+}
+
+async function loadThread() {
+    if (!me || !peer) return;
+    try {
+        const res = await fetch('/api/dm/' + encodeURIComponent(peer) + '?me=' + encodeURIComponent(me));
+        const msgs = await res.json();
+        if (lastCount === msgs.length) return;
+        const atBottom = $('thread').scrollTop + $('thread').clientHeight >= $('thread').scrollHeight - 40;
+        lastCount = msgs.length;
+        const box = $('thread');
+        box.textContent = '';
+        if (!msgs.length) {
+            const d = document.createElement('div');
+            d.id = 'dm-empty';
+            d.textContent = 'No messages yet — say hello.';
+            box.appendChild(d);
+        }
+        msgs.forEach(m => {
+            const b = document.createElement('div');
+            b.className = 'bubble ' + (m.sender === me ? 'mine' : 'theirs');
+            b.textContent = m.message;
+            const t = document.createElement('span');
+            t.className = 'bubble-time';
+            t.textContent = new Date(m.timestamp * 1000).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+            b.appendChild(t);
+            box.appendChild(b);
+        });
+        if (atBottom || lastCount === msgs.length) box.scrollTop = box.scrollHeight;
+        loadUnreadBadge();
+    } catch (err) { console.error('thread', err); }
+}
+
+async function sendDm() {
+    const input = $('dm-input');
+    const text = input.value.trim();
+    if (!text || !peer) return;
+    input.value = '';
+    try {
+        const res = await fetch('/api/dm/' + encodeURIComponent(peer), {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({username: me, message: text})
+        });
+        if (!res.ok) throw new Error('send failed');
+        lastCount = -1;
+        await loadThread();
+    } catch (err) {
+        console.error(err);
+        input.value = text;
+        alert('Could not send — try again.');
+    }
+}
+
+$('dm-send').addEventListener('click', sendDm);
+$('dm-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); sendDm(); }
+});
+
+async function loadUnreadBadge() {
+    if (!me) return;
+    try {
+        const res = await fetch('/api/dm/unread?me=' + encodeURIComponent(me));
+        const d = await res.json();
+        const el = $('nav-unread');
+        if (d.unread > 0) { el.textContent = d.unread; el.style.display = 'inline-block'; }
+        else el.style.display = 'none';
+    } catch (err) {}
+}
+
+if (me) { hideLogin(); loadPeers(); loadUnreadBadge(); }
+else { showLogin(); }
+
+setInterval(() => { loadThread(); }, 2500);
+setInterval(() => { loadPeers(); loadUnreadBadge(); }, 8000);
+</script>
+</body>
+</html>

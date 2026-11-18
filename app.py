@@ -69,6 +69,22 @@ def init_db():
             uploaded_by TEXT DEFAULT "anonymous"
         )"""
     )
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS dm_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sender TEXT NOT NULL,
+            recipient TEXT NOT NULL,
+            message TEXT NOT NULL,
+            timestamp REAL NOT NULL,
+            read_at REAL DEFAULT NULL
+        )"""
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_dm_pair ON dm_messages (sender, recipient)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_dm_unread ON dm_messages (recipient, read_at)"
+    )
     conn.commit()
     conn.close()
 
@@ -506,6 +522,125 @@ def admin_logout():
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
+# Direct messages — user to user private chat
+#
+# NOTE ON PRIVACY: there are no accounts here. A client states its own name,
+# so a determined visitor could claim someone else's name and read their
+# thread. This is casual privacy on a trusted island, not an auth system.
+# ---------------------------------------------------------------------------
+MAX_DM_LEN = 2000
+
+
+def _clean_user(value):
+    return (value or "").strip()[:24]
+
+
+@app.route("/dm")
+def dm_page():
+    return render_template("dm.html")
+
+
+@app.route("/api/dm/users")
+def dm_users():
+    me = _clean_user(request.args.get("me"))
+    if not me:
+        return jsonify({"error": "me is required"}), 400
+    conn = get_db()
+    rows = conn.execute(
+        """SELECT username, MAX(ts) AS last_activity FROM (
+               SELECT username, timestamp AS ts FROM messages WHERE username IS NOT NULL
+               UNION ALL
+               SELECT sender AS username, timestamp AS ts FROM dm_messages
+               UNION ALL
+               SELECT recipient AS username, timestamp AS ts FROM dm_messages
+           )
+           WHERE username IS NOT NULL AND username != '' AND username != ?
+           GROUP BY username
+           ORDER BY last_activity DESC""",
+        (me,),
+    ).fetchall()
+    unread_rows = conn.execute(
+        """SELECT sender, COUNT(*) AS c FROM dm_messages
+           WHERE recipient = ? AND read_at IS NULL GROUP BY sender""",
+        (me,),
+    ).fetchall()
+    conn.close()
+    unread = {r["sender"]: r["c"] for r in unread_rows}
+    return jsonify(
+        [
+            {
+                "username": r["username"],
+                "last_activity": r["last_activity"],
+                "unread": unread.get(r["username"], 0),
+            }
+            for r in rows
+        ]
+    )
+
+
+@app.route("/api/dm/unread")
+def dm_unread_total():
+    me = _clean_user(request.args.get("me"))
+    if not me:
+        return jsonify({"unread": 0})
+    conn = get_db()
+    row = conn.execute(
+        "SELECT COUNT(*) AS c FROM dm_messages WHERE recipient = ? AND read_at IS NULL",
+        (me,),
+    ).fetchone()
+    conn.close()
+    return jsonify({"unread": row["c"] or 0})
+
+
+@app.route("/api/dm/<peer>")
+def dm_thread(peer):
+    me = _clean_user(request.args.get("me"))
+    peer = _clean_user(peer)
+    if not me or not peer:
+        return jsonify({"error": "me and peer are required"}), 400
+    conn = get_db()
+    rows = conn.execute(
+        """SELECT id, sender, recipient, message, timestamp, read_at
+           FROM dm_messages
+           WHERE (sender = ? AND recipient = ?) OR (sender = ? AND recipient = ?)
+           ORDER BY id ASC LIMIT 200""",
+        (me, peer, peer, me),
+    ).fetchall()
+    # Reading a thread marks everything inbound as read
+    conn.execute(
+        """UPDATE dm_messages SET read_at = ?
+           WHERE recipient = ? AND sender = ? AND read_at IS NULL""",
+        (time.time(), me, peer),
+    )
+    conn.commit()
+    conn.close()
+    return jsonify([dict(r) for r in rows])
+
+
+@app.route("/api/dm/<peer>", methods=["POST"])
+def dm_send(peer):
+    data = request.get_json(silent=True) or {}
+    me = _clean_user(data.get("username"))
+    peer = _clean_user(peer)
+    message = (data.get("message") or "").strip()[:MAX_DM_LEN]
+    if not me or not peer:
+        return jsonify({"error": "username and peer are required"}), 400
+    if me.lower() == peer.lower():
+        return jsonify({"error": "You cannot message yourself"}), 400
+    if not message:
+        return jsonify({"error": "Message is required"}), 400
+    conn = get_db()
+    conn.execute(
+        """INSERT INTO dm_messages (sender, recipient, message, timestamp)
+           VALUES (?, ?, ?, ?)""",
+        (me, peer, message, time.time()),
+    )
+    conn.commit()
+    conn.close()
+    return jsonify({"status": "ok"}), 201
+
+
+# ---------------------------------------------------------------------------
 # Catch-all captive portal handler
 # ---------------------------------------------------------------------------
 @app.route("/generate_204")
@@ -517,6 +652,9 @@ def captive_portal_redirect():
 def catch_all(e):
     return redirect(url_for("index"))
 
+# Initialise the schema at import time so it works under any runner
+# (python app.py, gunicorn, systemd, tests) — not just __main__.
+init_db()
+
 if __name__ == "__main__":
-    init_db()
     app.run(host="0.0.0.0", port=5000, threaded=True)
